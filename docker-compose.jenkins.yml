@@ -1,0 +1,47 @@
+# Part II - started by the Jenkins pipeline.
+# No Dockerfile: the code is attached to the container as a volume.
+name: part2
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: part2-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: notesdb
+      POSTGRES_USER: notesuser
+      POSTGRES_PASSWORD: NotesPass123
+    volumes:
+      - part2-db-data:/var/lib/postgresql/data   # persistent database volume
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notesuser -d notesdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web:
+    image: python:3.11-slim
+    container_name: part2-web
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./:/app                                   # code volume (Jenkins workspace) instead of Dockerfile
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && python app.py"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: notesdb
+      DB_USER: notesuser
+      DB_PASSWORD: NotesPass123
+      APP_TITLE: "Notes App - Part II (Jenkins pipeline)"
+    ports:
+      - "8001:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  part2-db-data:
